@@ -1,0 +1,52 @@
+name: Build Flutter APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: 'App Name'
+        required: true
+      package_name:
+        description: 'Package Name (e.g., com.example.myapp)'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip Flutter project
+        run: unzip -o uploads/project.zip -d flutter_project
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: ./flutter_project
+
+      - name: Generate android folder
+        run: bash ./scripts/setup_android.sh "${{ github.event.inputs.app_name }}" "${{ github.event.inputs.package_name }}"
+
+      - name: Resize app icon
+        run: bash ./scripts/resize_icon.sh
+
+      - name: Build APK
+        run: flutter build apk --release
+        working-directory: ./flutter_project
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.apk
+          path: flutter_project/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Cleanup after 20 mins
+        run: |
+          echo "sleep 1200; rm -rf flutter_project uploads icon.png" | at now
+          
